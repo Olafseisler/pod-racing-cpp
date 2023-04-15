@@ -126,12 +126,14 @@ int next_checkpoint_y_cached = 0;
 vector<Point> checkpoints;
 int checkpoint_index = 0;
 bool passed_last = false;
+bool visited_all = false;
 
 bool checkpoint_exists(int next_x, int next_y) {
     for (size_t i = 0; i < checkpoints.size(); ++i) {
         if (checkpoints[i].get_x() == next_x &&
             checkpoints[i].get_y() == next_y) {
             if (checkpoints.size() > 1 && i == 0){
+                visited_all = true;
                 cerr << "size: " << checkpoints.size() << endl;
             }
 
@@ -147,31 +149,35 @@ void set_next_checkpoint(RacingPod &player, Point &current_checkpoint, int next_
     if (!checkpoint_exists(next_x, next_y))
     { // New point from stream
         cerr << "in new checkpoint branch, index " << checkpoint_index << endl;
+        cerr << "next x, y: " << next_x << ", " << next_y << endl;
         Point cp(next_x, next_y);
         checkpoints.push_back(cp);
         current_checkpoint = checkpoints[checkpoint_index];
         next_checkpoint_dist_cached =  next_dist;
         ++checkpoint_index;
+        passed_last = true;
     } else {
         if (current_checkpoint.get_x() != next_x &&
             current_checkpoint.get_y() != next_y)
         { // point from stream is not the current point
-            if (passed_last) {
-                cerr << "in increment branch" << endl;
+            cerr << "next point is not current" << endl;
+            if (passed_last){
                 current_checkpoint = checkpoints[checkpoint_index % checkpoints.size()];
                 next_checkpoint_dist_cached = next_dist;
                 ++checkpoint_index;
-                passed_last = false;
+//                passed_last = false;
             }
-        } else { // point from stream is current but under 30% distance
+        } else { // point from stream is current
             passed_last = true;
-
-            if ((float)next_dist / next_checkpoint_dist_cached < 0.3) {
-                cerr << "less than 30%" << endl;
-                current_checkpoint = checkpoints[checkpoint_index % checkpoints.size()];
-                next_checkpoint_dist_cached = player.distance_to(current_checkpoint);
-                ++checkpoint_index;
-                passed_last = false;
+            if ((float)next_dist / next_checkpoint_dist_cached < 0.2) {
+                cerr << "less than 20%" << endl;
+                if (visited_all){
+                    cerr << "set new point preemptively" << endl;
+                    current_checkpoint = checkpoints[checkpoint_index % checkpoints.size()];
+                    next_checkpoint_dist_cached = player.distance_to(current_checkpoint);
+                    ++checkpoint_index;
+                    passed_last = false;
+                }
             }
         }
     }
@@ -210,7 +216,7 @@ int main() {
         player.set_coords(x, y);
         set_next_checkpoint(player, current_checkpoint, next_checkpoint_dist, next_checkpoint_x, next_checkpoint_y);
 
-        float dist_factor = 1 / (1 + exp(-20 * ((float) next_checkpoint_dist / next_checkpoint_dist_cached - 0.2)));
+        float dist_factor = 1 / (1 + exp(-20 * ((float) next_checkpoint_dist / next_checkpoint_dist_cached - 0.25)));
         int thrust = dist_factor * 100 * exp(-0.00005 * pow(next_checkpoint_angle, 2));
 
 //        player.play(current_checkpoint, thrust);
