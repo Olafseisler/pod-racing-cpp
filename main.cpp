@@ -70,54 +70,6 @@ public:
         float left = this->angle >= target_angle ? this->angle - target_angle : this->angle + 360.0 - target_angle;
         return right < left ? right : -left;
     }
-
-    void rotate(Point p) {
-        float a = this->get_angle_to(p);
-
-        // Can't turn by more than 18° in one turn
-        if (a > 18.0) {
-            a = 18.0;
-        } else if (a < -18.0) {
-            a = -18.0;
-        }
-
-        this->angle += a;
-
-        // The % operator is slow. If we can avoid it, it's better.
-        if (this->angle >= 360.0) {
-            this->angle = this->angle - 360.0;
-        } else if (this->angle < 0.0) {
-            this->angle += 360.0;
-        }
-    }
-
-    void boost(int thrust) {
-        // Conversion of the angle to radians
-        float ra = this->angle * PI / 180.0;
-
-        // Trigonometry
-        this->vx += cos(ra) * thrust;
-        this->vy += sin(ra) * thrust;
-    }
-
-    void move() {
-        this->x_coord += this->vx;
-        this->y_coord += this->vy;
-    }
-
-    void end() {
-        this->x_coord = round(this->x_coord);
-        this->y_coord = round(this->y_coord);
-        this->vx = (int) (this->vx * 0.85);
-        this->vy = (int) (this->vy * 0.85);
-    }
-
-    void play(Point p, int thrust) {
-        this->rotate(p);
-        this->boost(thrust);
-        this->move();
-        this->end();
-    }
 };
 
 int next_checkpoint_dist_cached = 0;
@@ -170,7 +122,7 @@ void set_next_checkpoint(RacingPod &player, Point &current_checkpoint, int next_
         } else { // point from stream is current
             passed_last = true;
             if ((float)next_dist / next_checkpoint_dist_cached < 0.2) {
-                cerr << "less than 20%" << endl;
+                cerr << "less than 20%" << endl; // presteer to next point if it is known.
                 if (visited_all){
                     cerr << "set new point preemptively" << endl;
                     current_checkpoint = checkpoints[checkpoint_index % checkpoints.size()];
@@ -217,7 +169,7 @@ int main() {
         set_next_checkpoint(player, current_checkpoint, next_checkpoint_dist, next_checkpoint_x, next_checkpoint_y);
 
         float dist_factor = 1 / (1 + exp(-20 * ((float) next_checkpoint_dist / next_checkpoint_dist_cached - 0.25)));
-        int thrust = dist_factor * 100 * exp(-0.00005 * pow(next_checkpoint_angle, 2));
+        int thrust = dist_factor * 85 * exp(-0.0005 * pow(next_checkpoint_angle, 2)) + 15;
 
 //        player.play(current_checkpoint, thrust);
 
